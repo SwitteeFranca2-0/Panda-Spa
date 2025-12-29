@@ -107,6 +107,10 @@ class RecommendationWindow:
         ttk.Button(action_frame, text="⭐ View Popular Services", command=self._view_popular).pack(side=tk.LEFT, padx=5)
         ttk.Button(action_frame, text="🔄 Refresh", command=self._refresh_all).pack(side=tk.LEFT, padx=5)
         
+        # Status label for messages
+        self.status_label = ttk.Label(main_frame, text="", font=("Arial", 9), foreground="green")
+        self.status_label.pack(pady=5)
+        
         # Customer preferences panel
         pref_frame = ttk.LabelFrame(main_frame, text="Customer Preferences", padding="10")
         pref_frame.pack(fill=tk.BOTH, expand=True)
@@ -170,6 +174,7 @@ class RecommendationWindow:
             self.recommendations_tree.delete(item)
         
         if not self.customer_combo.get():
+            self.status_label.config(text="Please select a customer to see recommendations.", foreground="orange")
             return
         
         try:
@@ -177,6 +182,7 @@ class RecommendationWindow:
             self.current_customer = self.db_manager.get_by_id(Customer, customer_id)
             
             if not self.current_customer:
+                self.status_label.config(text="Customer not found.", foreground="red")
                 return
             
             # Get recommendations
@@ -191,6 +197,7 @@ class RecommendationWindow:
                     "",
                     "Try completing some appointments first to build preferences"
                 ))
+                self.status_label.config(text="No recommendations available. Complete appointments to build preferences.", foreground="orange")
                 return
             
             # Add to treeview
@@ -212,8 +219,10 @@ class RecommendationWindow:
             self.recommendations_tree.tag_configure('high_score', foreground='green')
             self.recommendations_tree.tag_configure('medium_score', foreground='blue')
             self.recommendations_tree.tag_configure('low_score', foreground='gray')
+            
+            self.status_label.config(text=f"Loaded {len(recommendations)} recommendations for {self.current_customer.name}.", foreground="green")
         except (ValueError, IndexError) as e:
-            messagebox.showerror("Error", f"Failed to load recommendations: {e}")
+            self.status_label.config(text=f"Error: Failed to load recommendations: {e}", foreground="red")
     
     def _load_customer_preferences(self):
         """Load customer's preference history."""
@@ -317,36 +326,68 @@ class RecommendationWindow:
     
     def _view_popular(self):
         """View popular services overall."""
-        # Clear recommendations and show popular services
-        for item in self.recommendations_tree.get_children():
-            self.recommendations_tree.delete(item)
-        
-        popular_services = self.recommendation_service._get_popular_services(limit=10)
-        
-        if not popular_services:
-            self.recommendations_tree.insert('', tk.END, values=(
-                "No popular services yet",
-                "",
-                "",
-                "",
-                "Services will appear here as customers book them"
-            ))
-            messagebox.showinfo("Info", "No popular services data available yet.")
-            return
-        
-        for service in popular_services:
-            type_display = service.service_type.replace('_', ' ').title()
+        try:
+            # Clear recommendations and show popular services
+            for item in self.recommendations_tree.get_children():
+                self.recommendations_tree.delete(item)
             
-            self.recommendations_tree.insert('', tk.END, values=(
-                service.name,
-                type_display,
-                f"${service.price:.2f}",
-                "Popular",
-                "Popular choice among our guests"
-            ), tags=('popular',))
-        
-        self.recommendations_tree.tag_configure('popular', foreground='orange')
-        messagebox.showinfo("Info", f"Showing {len(popular_services)} most popular services overall.")
+            # Clear customer selection when viewing popular services
+            self.customer_combo.set('')
+            self.current_customer = None
+            
+            # Clear preferences when viewing popular
+            for item in self.preferences_tree.get_children():
+                self.preferences_tree.delete(item)
+            
+            popular_services = self.recommendation_service.get_popular_services(limit=10)
+            
+            if not popular_services:
+                self.recommendations_tree.insert('', tk.END, values=(
+                    "No popular services yet",
+                    "",
+                    "",
+                    "",
+                    "Services will appear here as customers book them"
+                ))
+                self.status_label.config(text="No popular services data available yet.", foreground="orange")
+                return
+            
+            # Reload services to avoid detached instance errors
+            loaded_services = []
+            for service in popular_services:
+                reloaded_service = self.db_manager.get_by_id(Service, service.id)
+                if reloaded_service:
+                    loaded_services.append(reloaded_service)
+            
+            if not loaded_services:
+                self.recommendations_tree.insert('', tk.END, values=(
+                    "No popular services available",
+                    "",
+                    "",
+                    "",
+                    "No services found in database"
+                ))
+                self.status_label.config(text="No popular services available.", foreground="orange")
+                return
+            
+            for service in loaded_services:
+                type_display = service.service_type.replace('_', ' ').title()
+                
+                self.recommendations_tree.insert('', tk.END, values=(
+                    service.name,
+                    type_display,
+                    f"${service.price:.2f}",
+                    "Popular",
+                    "Popular choice among our guests"
+                ), tags=('popular',))
+            
+            self.recommendations_tree.tag_configure('popular', foreground='orange')
+            self.status_label.config(text=f"Showing {len(loaded_services)} most popular services overall.", foreground="green")
+            
+        except Exception as e:
+            self.status_label.config(text=f"Error: Failed to load popular services: {e}", foreground="red")
+            import traceback
+            traceback.print_exc()
     
     def _refresh_all(self):
         """Refresh recommendations and preferences."""
@@ -369,6 +410,9 @@ class RecommendationWindow:
         for item in self.preferences_tree.get_children():
             self.preferences_tree.delete(item)
         
+        # Clear status
+        self.status_label.config(text="")
+        
         # Show welcome message
         self.recommendations_tree.insert('', tk.END, values=(
             "Select a customer to see recommendations",
@@ -377,4 +421,5 @@ class RecommendationWindow:
             "",
             "Choose a customer from the dropdown above"
         ))
+        self.status_label.config(text="Welcome! Select a customer to see personalized recommendations.", foreground="blue")
 

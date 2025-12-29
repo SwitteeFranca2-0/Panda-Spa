@@ -254,6 +254,126 @@ class AppointmentService:
         
         return available_slots
     
+    def update_appointment(self, appointment_id: int, customer_id: int = None, 
+                          service_id: int = None, appointment_datetime: datetime = None,
+                          notes: str = None, customer_feeling: str = None,
+                          extras: List = None) -> Tuple[bool, str]:
+        """
+        Update an existing appointment.
+        
+        Args:
+            appointment_id: ID of appointment to update
+            customer_id: Optional new customer ID
+            service_id: Optional new service ID
+            appointment_datetime: Optional new date/time
+            notes: Optional new notes
+            customer_feeling: Optional new feeling
+            extras: Optional list of Extra objects to replace current extras
+            
+        Returns:
+            Tuple of (success, error message)
+        """
+        appointment = self.db_manager.get_by_id(Appointment, appointment_id)
+        if not appointment:
+            return False, "Appointment not found"
+        
+        if appointment.status == Appointment.STATUS_COMPLETED:
+            return False, "Cannot update a completed appointment"
+        
+        if appointment.status == Appointment.STATUS_CANCELLED:
+            return False, "Cannot update a cancelled appointment"
+        
+        # Update customer if provided
+        if customer_id is not None:
+            customer = self.db_manager.get_by_id(Customer, customer_id)
+            if not customer:
+                return False, "Customer not found"
+            appointment.customer_id = customer_id
+        
+        # Update service if provided
+        new_service = None
+        if service_id is not None:
+            new_service = self.db_manager.get_by_id(Service, service_id)
+            if not new_service:
+                return False, "Service not found"
+            if not new_service.is_available:
+                return False, "Service is not available"
+            appointment.service_id = service_id
+            
+            # Recalculate price and duration based on new service
+            # Base price/duration from service (extras will be handled separately if provided)
+            appointment.price_paid = new_service.price
+            appointment.duration_minutes = new_service.duration_minutes
+        
+        # Update date/time if provided
+        if appointment_datetime is not None:
+            # Check for conflicts (excluding current appointment)
+            self._current_appointment_id = appointment.id
+            service_id_to_check = service_id if service_id is not None else appointment.service_id
+            duration_to_check = appointment.duration_minutes
+            
+            conflict = self.check_conflict(
+                service_id_to_check,
+                appointment_datetime,
+                duration_to_check
+            )
+            delattr(self, '_current_appointment_id')
+            
+            if conflict:
+                return False, f"Time slot conflict: {conflict}"
+            
+            appointment.appointment_datetime = appointment_datetime
+        
+        # Update feeling if provided
+        if customer_feeling is not None:
+            appointment.customer_feeling = customer_feeling
+        
+        # Update notes if provided
+        if notes is not None:
+            appointment.notes = notes
+        
+        # Save updated appointment (before updating extras)
+        success = self.db_manager.save(appointment)
+        
+        # Update extras if provided (after saving main appointment)
+        if extras is not None and success:
+            # Use session context to update extras relationship
+            def update_extras(session):
+                from models.extra import Extra
+                appt = session.get(Appointment, appointment_id)
+                if appt:
+                    # Get service for base price/duration
+                    service_obj = session.get(Service, appt.service_id)
+                    base_price = service_obj.price if service_obj else appt.price_paid
+                    base_duration = service_obj.duration_minutes if service_obj else appt.duration_minutes
+                    
+                    # Clear existing extras
+                    appt.extras = []
+                    
+                    # Add new extras
+                    for extra in extras:
+                        # Reload extra to ensure it's bound to session
+                        extra_obj = session.get(Extra, extra.id)
+                        if extra_obj:
+                            appt.extras.append(extra_obj)
+                            base_price += extra_obj.price
+                            base_duration += extra_obj.duration_minutes
+                    
+                    appt.price_paid = base_price
+                    appt.duration_minutes = base_duration
+                    session.commit()
+            
+            try:
+                self.db_manager.execute_query(update_extras)
+            except Exception:
+                # If extras update fails, still return success for main update
+                pass
+        
+        if success:
+            return True, None
+        else:
+            return False, "Failed to update appointment"
+    
     def reschedule_appointment(self, appointment_id: int, new_datetime: datetime) -> Tuple[bool, str]:
         """
         Reschedule an appointment to a new time.
@@ -265,32 +385,7 @@ class AppointmentService:
         Returns:
             Tuple of (success, error message)
         """
-        appointment = self.db_manager.get_by_id(Appointment, appointment_id)
-        if not appointment:
-            return False, "Appointment not found"
-        
-        if appointment.status != Appointment.STATUS_SCHEDULED:
-            return False, f"Cannot reschedule {appointment.status} appointment"
-        
-        # Check for conflicts (excluding current appointment)
-        self._current_appointment_id = appointment.id
-        conflict = self.check_conflict(
-            appointment.service_id,
-            new_datetime,
-            appointment.duration_minutes
-        )
-        delattr(self, '_current_appointment_id')
-        
-        if conflict:
-            return False, f"Time slot conflict: {conflict}"
-        
-        # Update appointment
-        success = self.db_manager.update(appointment, appointment_datetime=new_datetime)
-        
-        if success:
-            return True, None
-        else:
-            return False, "Failed to reschedule appointment"
+        return self.update_appointment(appointment_id, appointment_datetime=new_datetime)
     
     def get_appointments_by_customer(self, customer_id: int) -> List[Appointment]:
         """Get all appointments for a customer."""

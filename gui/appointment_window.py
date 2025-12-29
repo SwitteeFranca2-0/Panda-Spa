@@ -372,6 +372,11 @@ class AppointmentWindow:
         if not self.current_appointment:
             return
         
+        # Reload appointment to ensure it's bound to session
+        self.current_appointment = self.db_manager.get_by_id(Appointment, self.current_appointment.id)
+        if not self.current_appointment:
+            return
+        
         # Load customer
         customer = self.db_manager.get_by_id(Customer, self.current_appointment.customer_id)
         if customer:
@@ -394,11 +399,25 @@ class AppointmentWindow:
         # Load feeling
         if self.current_appointment.customer_feeling:
             self.feeling_combo.set(self.current_appointment.customer_feeling)
+        else:
+            self.feeling_combo.set('')
         
         # Load notes
         self.notes_text.delete('1.0', tk.END)
         if self.current_appointment.notes:
             self.notes_text.insert('1.0', self.current_appointment.notes)
+        
+        # Load extras
+        self.extras_listbox.selection_clear(0, tk.END)
+        if self.current_appointment.extras:
+            all_extras = self.db_manager.find(Extra, is_available=True)
+            current_extra_ids = {e.id for e in self.current_appointment.extras}
+            for i, extra in enumerate(all_extras):
+                if extra.id in current_extra_ids:
+                    self.extras_listbox.selection_set(i)
+        
+        # Store selected extras for update
+        self.selected_extras = list(self.current_appointment.extras) if self.current_appointment.extras else []
     
     def _create_appointment(self):
         """Create a new appointment."""
@@ -463,8 +482,78 @@ class AppointmentWindow:
             messagebox.showwarning("Warning", "Please select an appointment to update!")
             return
         
-        # Similar to create, but update existing appointment
-        messagebox.showinfo("Info", "Update functionality - to be implemented")
+        try:
+            # Reload appointment to ensure it's current
+            appointment_id = self.current_appointment.id
+            self.current_appointment = self.db_manager.get_by_id(Appointment, appointment_id)
+            
+            if not self.current_appointment:
+                messagebox.showerror("Error", "Appointment not found!")
+                return
+            
+            # Check if appointment can be updated
+            if self.current_appointment.status == Appointment.STATUS_COMPLETED:
+                messagebox.showerror("Error", "Cannot update a completed appointment!")
+                return
+            
+            if self.current_appointment.status == Appointment.STATUS_CANCELLED:
+                messagebox.showerror("Error", "Cannot update a cancelled appointment!")
+                return
+            
+            # Get customer
+            if not self.customer_combo.get():
+                messagebox.showerror("Error", "Please select a customer!")
+                return
+            
+            customer_id = int(self.customer_combo.get().split(':')[0])
+            
+            # Get service
+            if not self.service_combo.get():
+                messagebox.showerror("Error", "Please select a service!")
+                return
+            
+            service_id = int(self.service_combo.get().split(':')[0])
+            
+            # Get date and time
+            date_str = self.date_entry.get()
+            time_str = self.time_entry.get()
+            appointment_datetime = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+            
+            # Get feeling
+            feeling = self.feeling_combo.get() or None
+            
+            # Get notes
+            notes = self.notes_text.get('1.0', tk.END).strip()
+            
+            # Get selected extras
+            selected_indices = self.extras_listbox.curselection()
+            selected_extras = []
+            if selected_indices:
+                all_extras = self.db_manager.find(Extra, is_available=True)
+                selected_extras = [all_extras[idx] for idx in selected_indices]
+            
+            # Update appointment using service
+            success, error = self.appointment_service.update_appointment(
+                appointment_id=appointment_id,
+                customer_id=customer_id,
+                service_id=service_id,
+                appointment_datetime=appointment_datetime,
+                notes=notes,
+                customer_feeling=feeling,
+                extras=selected_extras if selected_extras else None
+            )
+            
+            if success:
+                messagebox.showinfo("Success", "Appointment updated successfully!")
+                self._clear_form()
+                self._load_appointments()
+            else:
+                messagebox.showerror("Error", error)
+                
+        except ValueError as e:
+            messagebox.showerror("Error", f"Invalid input: {e}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to update appointment: {e}")
     
     def _complete_appointment(self):
         """Mark selected appointment as completed."""

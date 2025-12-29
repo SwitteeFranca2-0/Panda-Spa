@@ -333,4 +333,16 @@ class RecommendationService:
             reverse=True
         )
         return sorted_prefs[:limit]
+    
+    def get_popular_services(self, limit: int = 10) -> List[Service]:
+        """
+        Get most popular services overall (public method).
+        
+        Args:
+            limit: Maximum number of services to return
+            
+        Returns:
+            List of popular Service objects
+        """
+        return self._get_popular_services(limit)
 
