@@ -177,6 +177,8 @@ class RecommendationService:
                 if not any(rec[0].id == service.id for rec in recommendations):
                     reason = self._get_recommendation_reason(customer_id, service.id, "popular")
                     recommendations.append((service, 0.0, reason))
+                    if len(recommendations) >= limit:
+                        break
         
         # Strategy 3: If still not enough, add complementary services
         if len(recommendations) < limit and customer_preferences:
@@ -187,6 +189,17 @@ class RecommendationService:
                 if not any(rec[0].id == service.id for rec in recommendations):
                     reason = self._get_recommendation_reason(customer_id, service.id, "complementary")
                     recommendations.append((service, 0.0, reason))
+                    if len(recommendations) >= limit:
+                        break
+        
+        # Strategy 4: If still not enough, add any available services
+        if len(recommendations) < limit:
+            for service in available_services:
+                if not any(rec[0].id == service.id for rec in recommendations):
+                    reason = "Available service"
+                    recommendations.append((service, 0.0, reason))
+                    if len(recommendations) >= limit:
+                        break
         
         return recommendations[:limit]
     

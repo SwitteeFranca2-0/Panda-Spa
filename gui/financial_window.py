@@ -58,13 +58,45 @@ class FinancialWindow:
         left_panel.grid(row=0, column=0, rowspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 10))
         left_panel.columnconfigure(0, weight=1)
         
-        # Financial Dashboard
+        # Financial Dashboard (with scrollbar)
         dashboard_frame = ttk.LabelFrame(left_panel, text="Financial Dashboard", padding="10")
         dashboard_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
         dashboard_frame.columnconfigure(0, weight=1)
+        dashboard_frame.rowconfigure(0, weight=1)
+        
+        # Create scrollable canvas for dashboard
+        dashboard_canvas = tk.Canvas(dashboard_frame, highlightthickness=0)
+        dashboard_scrollbar = ttk.Scrollbar(dashboard_frame, orient=tk.VERTICAL, command=dashboard_canvas.yview)
+        dashboard_inner = ttk.Frame(dashboard_canvas)
+        
+        dashboard_canvas_window = dashboard_canvas.create_window((0, 0), window=dashboard_inner, anchor="nw")
+        
+        def update_dashboard_scroll(event=None):
+            dashboard_canvas.update_idletasks()
+            bbox = dashboard_canvas.bbox("all")
+            if bbox:
+                dashboard_canvas.configure(scrollregion=bbox)
+        
+        def update_dashboard_width(event=None):
+            canvas_width = event.width if event else dashboard_canvas.winfo_width()
+            if canvas_width > 1:
+                dashboard_canvas.itemconfig(dashboard_canvas_window, width=canvas_width)
+        
+        dashboard_inner.bind("<Configure>", update_dashboard_scroll)
+        dashboard_canvas.bind("<Configure>", update_dashboard_width)
+        dashboard_canvas.configure(yscrollcommand=dashboard_scrollbar.set)
+        
+        dashboard_canvas.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        dashboard_scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        
+        def on_dashboard_mousewheel(event):
+            dashboard_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        dashboard_canvas.bind("<MouseWheel>", on_dashboard_mousewheel)
+        
+        dashboard_inner.columnconfigure(0, weight=1)
         
         # Date range selection
-        date_frame = ttk.Frame(dashboard_frame)
+        date_frame = ttk.Frame(dashboard_inner)
         date_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
         
         ttk.Label(date_frame, text="From:").grid(row=0, column=0, padx=(0, 5))
@@ -80,7 +112,7 @@ class FinancialWindow:
         ttk.Button(date_frame, text="Update", command=self._update_dashboard).grid(row=0, column=4)
         
         # Financial summary
-        summary_frame = ttk.Frame(dashboard_frame)
+        summary_frame = ttk.Frame(dashboard_inner)
         summary_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=10)
         
         self.revenue_label = ttk.Label(summary_frame, text="Revenue: $0.00", font=("Arial", 14, "bold"), foreground="green")
@@ -93,24 +125,64 @@ class FinancialWindow:
         self.profit_label.grid(row=2, column=0, sticky=tk.W, pady=5)
         
         # Category breakdown
-        breakdown_frame = ttk.LabelFrame(dashboard_frame, text="Expense Breakdown by Category", padding="10")
-        breakdown_frame.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=10)
+        breakdown_frame = ttk.LabelFrame(dashboard_inner, text="Expense Breakdown by Category", padding="10")
+        breakdown_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=10)
         breakdown_frame.columnconfigure(0, weight=1)
         
-        self.breakdown_text = tk.Text(breakdown_frame, height=8, width=30, state=tk.DISABLED)
+        breakdown_text_frame = ttk.Frame(breakdown_frame)
+        breakdown_text_frame.grid(row=0, column=0, sticky=(tk.W, tk.E))
+        breakdown_text_frame.columnconfigure(0, weight=1)
+        
+        self.breakdown_text = tk.Text(breakdown_text_frame, height=8, width=30, state=tk.DISABLED)
         self.breakdown_text.grid(row=0, column=0, sticky=(tk.W, tk.E))
         
-        # Expense Form
+        breakdown_text_scrollbar = ttk.Scrollbar(breakdown_text_frame, orient=tk.VERTICAL, command=self.breakdown_text.yview)
+        breakdown_text_scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        self.breakdown_text.configure(yscrollcommand=breakdown_text_scrollbar.set)
+        
+        # Expense Form (with scrollbar)
         expense_frame = ttk.LabelFrame(left_panel, text="Record Expense", padding="10")
         expense_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        expense_frame.columnconfigure(1, weight=1)
+        expense_frame.columnconfigure(0, weight=1)
+        expense_frame.rowconfigure(0, weight=1)
         
-        ttk.Label(expense_frame, text="Amount ($):").grid(row=0, column=0, sticky=tk.W, pady=5)
-        self.amount_entry = ttk.Entry(expense_frame, width=25)
+        # Create scrollable canvas for expense form
+        expense_canvas = tk.Canvas(expense_frame, highlightthickness=0)
+        expense_scrollbar = ttk.Scrollbar(expense_frame, orient=tk.VERTICAL, command=expense_canvas.yview)
+        expense_form_inner = ttk.Frame(expense_canvas)
+        
+        expense_canvas_window = expense_canvas.create_window((0, 0), window=expense_form_inner, anchor="nw")
+        
+        def update_expense_scroll(event=None):
+            expense_canvas.update_idletasks()
+            bbox = expense_canvas.bbox("all")
+            if bbox:
+                expense_canvas.configure(scrollregion=bbox)
+        
+        def update_expense_width(event=None):
+            canvas_width = event.width if event else expense_canvas.winfo_width()
+            if canvas_width > 1:
+                expense_canvas.itemconfig(expense_canvas_window, width=canvas_width)
+        
+        expense_form_inner.bind("<Configure>", update_expense_scroll)
+        expense_canvas.bind("<Configure>", update_expense_width)
+        expense_canvas.configure(yscrollcommand=expense_scrollbar.set)
+        
+        expense_canvas.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        expense_scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        
+        def on_expense_mousewheel(event):
+            expense_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        expense_canvas.bind("<MouseWheel>", on_expense_mousewheel)
+        
+        expense_form_inner.columnconfigure(1, weight=1)
+        
+        ttk.Label(expense_form_inner, text="Amount ($):").grid(row=0, column=0, sticky=tk.W, pady=5)
+        self.amount_entry = ttk.Entry(expense_form_inner, width=25)
         self.amount_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=5, padx=(5, 0))
         
-        ttk.Label(expense_frame, text="Category:").grid(row=1, column=0, sticky=tk.W, pady=5)
-        self.category_combo = ttk.Combobox(expense_frame, width=22, state="readonly")
+        ttk.Label(expense_form_inner, text="Category:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        self.category_combo = ttk.Combobox(expense_form_inner, width=22, state="readonly")
         expense_categories = [
             FinancialRecord.CATEGORY_HOT_WATER,
             FinancialRecord.CATEGORY_TEA,
@@ -122,23 +194,23 @@ class FinancialWindow:
         self.category_combo['values'] = expense_categories
         self.category_combo.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=5, padx=(5, 0))
         
-        ttk.Label(expense_frame, text="Supplier:").grid(row=2, column=0, sticky=tk.W, pady=5)
-        self.supplier_combo = ttk.Combobox(expense_frame, width=22, state="readonly")
+        ttk.Label(expense_form_inner, text="Supplier:").grid(row=2, column=0, sticky=tk.W, pady=5)
+        self.supplier_combo = ttk.Combobox(expense_form_inner, width=22, state="readonly")
         self.supplier_combo.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=5, padx=(5, 0))
         
-        ttk.Label(expense_frame, text="Description:").grid(row=3, column=0, sticky=tk.W, pady=5)
-        self.description_entry = ttk.Entry(expense_frame, width=25)
+        ttk.Label(expense_form_inner, text="Description:").grid(row=3, column=0, sticky=tk.W, pady=5)
+        self.description_entry = ttk.Entry(expense_form_inner, width=25)
         self.description_entry.grid(row=3, column=1, sticky=(tk.W, tk.E), pady=5, padx=(5, 0))
         
-        ttk.Label(expense_frame, text="Receipt #:").grid(row=4, column=0, sticky=tk.W, pady=5)
-        self.receipt_entry = ttk.Entry(expense_frame, width=25)
+        ttk.Label(expense_form_inner, text="Receipt #:").grid(row=4, column=0, sticky=tk.W, pady=5)
+        self.receipt_entry = ttk.Entry(expense_form_inner, width=25)
         self.receipt_entry.grid(row=4, column=1, sticky=(tk.W, tk.E), pady=5, padx=(5, 0))
         
-        ttk.Label(expense_frame, text="Notes:").grid(row=5, column=0, sticky=tk.W, pady=5)
-        self.expense_notes_text = tk.Text(expense_frame, width=25, height=3)
+        ttk.Label(expense_form_inner, text="Notes:").grid(row=5, column=0, sticky=tk.W, pady=5)
+        self.expense_notes_text = tk.Text(expense_form_inner, width=25, height=3)
         self.expense_notes_text.grid(row=5, column=1, sticky=(tk.W, tk.E), pady=5, padx=(5, 0))
         
-        ttk.Button(expense_frame, text="Record Expense", command=self._record_expense).grid(row=6, column=0, columnspan=2, pady=10)
+        ttk.Button(expense_form_inner, text="Record Expense", command=self._record_expense).grid(row=6, column=0, columnspan=2, pady=10)
         
         # Right panel - Financial Records List
         list_frame = ttk.LabelFrame(main_frame, text="Financial Records", padding="10")

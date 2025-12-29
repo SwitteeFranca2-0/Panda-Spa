@@ -12,6 +12,7 @@ from gui.service_window import ServiceWindow
 from gui.appointment_window import AppointmentWindow
 from gui.financial_window import FinancialWindow
 from gui.recommendation_window import RecommendationWindow
+from gui.feeling_mapping_window import FeelingMappingWindow
 from services.financial_service import FinancialService
 from services.appointment_service import AppointmentService
 from models.customer import Customer
@@ -54,6 +55,11 @@ class MainWindow:
     
     def _create_widgets(self):
         """Create and layout all GUI widgets."""
+        # Configure Treeview style to set row height (prevents overlapping rows)
+        style = ttk.Style()
+        style.configure("Treeview", rowheight=50)  # Set row height to 50 pixels
+        style.configure("Treeview.Heading", font=('Arial', 10, 'bold'))
+        
         # Header
         header_frame = tk.Frame(self.root, bg="#2c3e50", height=100)
         header_frame.pack(fill=tk.X)
@@ -92,6 +98,7 @@ class MainWindow:
             ("📅 Manage Appointments", self._open_appointments),
             ("💰 Financial Management", self._open_financial),
             ("⭐ Service Recommendations", self._open_recommendations),
+            ("🎭 Configure Feeling Mappings", self._open_feeling_mappings),
         ]
         
         for text, command in nav_buttons:
@@ -152,29 +159,42 @@ class MainWindow:
             
             self.stats_cards[key] = value_widget
         
+        # Configure style to prevent row overlap (must be before Treeview creation)
+        style = ttk.Style()
+        style.configure("Treeview", rowheight=25)
+        style.configure("Treeview.Heading", font=('Arial', 10, 'bold'))
+        
         # Recent appointments
         recent_frame = ttk.LabelFrame(dashboard_frame, text="Today's Appointments", padding="10")
         recent_frame.pack(fill=tk.BOTH, expand=True)
+        recent_frame.columnconfigure(0, weight=1)
+        recent_frame.rowconfigure(0, weight=1)
+        
+        # Treeview container frame
+        tree_frame = ttk.Frame(recent_frame)
+        tree_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        tree_frame.columnconfigure(0, weight=1)
+        tree_frame.rowconfigure(0, weight=1)
         
         # Appointments list
         columns = ('Time', 'Customer', 'Service', 'Status')
-        self.appointments_tree = ttk.Treeview(recent_frame, columns=columns, show='headings', height=10)
+        self.appointments_tree = ttk.Treeview(tree_frame, columns=columns, show='headings', height=10)
         
         self.appointments_tree.heading('Time', text='Time')
         self.appointments_tree.heading('Customer', text='Customer')
         self.appointments_tree.heading('Service', text='Service')
         self.appointments_tree.heading('Status', text='Status')
         
-        self.appointments_tree.column('Time', width=120)
-        self.appointments_tree.column('Customer', width=150)
-        self.appointments_tree.column('Service', width=150)
-        self.appointments_tree.column('Status', width=100)
+        self.appointments_tree.column('Time', width=120, anchor=tk.CENTER)
+        self.appointments_tree.column('Customer', width=150, anchor=tk.W)
+        self.appointments_tree.column('Service', width=150, anchor=tk.W)
+        self.appointments_tree.column('Status', width=100, anchor=tk.CENTER)
         
-        self.appointments_tree.pack(fill=tk.BOTH, expand=True)
+        self.appointments_tree.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         # Scrollbar for appointments
-        scrollbar = ttk.Scrollbar(recent_frame, orient=tk.VERTICAL, command=self.appointments_tree.yview)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        scrollbar = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.appointments_tree.yview)
+        scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.appointments_tree.configure(yscrollcommand=scrollbar.set)
         
         # Refresh button
@@ -267,6 +287,10 @@ class MainWindow:
     def _open_recommendations(self):
         """Open recommendation window."""
         RecommendationWindow(self.root, self.db_manager)
+    
+    def _open_feeling_mappings(self):
+        """Open feeling-service mapping configuration window."""
+        FeelingMappingWindow(self.root, self.db_manager)
     
     def _on_closing(self):
         """Handle window closing."""

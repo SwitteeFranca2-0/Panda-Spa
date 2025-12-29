@@ -38,6 +38,11 @@ class CustomerWindow:
     
     def _create_widgets(self):
         """Create and layout all GUI widgets."""
+        # Configure Treeview style to set row height (prevents overlapping rows)
+        style = ttk.Style()
+        style.configure("Treeview", rowheight=50)  # Set row height to 30 pixels
+        style.configure("Treeview.Heading", font=('Arial', 10, 'bold'))
+        
         # Main container
         main_frame = ttk.Frame(self.window, padding="10")
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
@@ -105,11 +110,17 @@ class CustomerWindow:
         self.species_filter.grid(row=0, column=3, padx=(0, 5))
         self.species_filter.bind('<<ComboboxSelected>>', self._on_filter)
         
+        # Treeview container frame
+        tree_frame = ttk.Frame(list_frame)
+        tree_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        tree_frame.columnconfigure(0, weight=1)
+        tree_frame.rowconfigure(0, weight=1)
+        
         # Customer list (Treeview)
         columns = ('ID', 'Name', 'Species', 'Contact', 'Visits', 'Spent', 'Active')
-        self.customer_tree = ttk.Treeview(list_frame, columns=columns, show='headings', height=15)
+        self.customer_tree = ttk.Treeview(tree_frame, columns=columns, show='headings', height=15)
         
-        # Configure columns
+        # Configure columns with proper spacing
         self.customer_tree.heading('ID', text='ID')
         self.customer_tree.heading('Name', text='Name')
         self.customer_tree.heading('Species', text='Species')
@@ -118,20 +129,21 @@ class CustomerWindow:
         self.customer_tree.heading('Spent', text='Spent')
         self.customer_tree.heading('Active', text='Active')
         
-        self.customer_tree.column('ID', width=50)
-        self.customer_tree.column('Name', width=120)
-        self.customer_tree.column('Species', width=80)
-        self.customer_tree.column('Contact', width=150)
-        self.customer_tree.column('Visits', width=60)
-        self.customer_tree.column('Spent', width=80)
-        self.customer_tree.column('Active', width=60)
+        self.customer_tree.column('ID', width=50, anchor=tk.CENTER, minwidth=50)
+        self.customer_tree.column('Name', width=120, anchor=tk.W, minwidth=100)
+        self.customer_tree.column('Species', width=80, anchor=tk.W, minwidth=70)
+        self.customer_tree.column('Contact', width=150, anchor=tk.W, minwidth=120)
+        self.customer_tree.column('Visits', width=60, anchor=tk.CENTER, minwidth=50)
+        self.customer_tree.column('Spent', width=80, anchor=tk.E, minwidth=70)
+        self.customer_tree.column('Active', width=60, anchor=tk.CENTER, minwidth=50)
+        self.customer_tree.column('#0', width=0, stretch=tk.NO)  # Hide the tree column
         
-        self.customer_tree.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        self.customer_tree.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         self.customer_tree.bind('<Double-1>', self._on_customer_select)
         
         # Scrollbar for treeview
-        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.customer_tree.yview)
-        scrollbar.grid(row=1, column=1, sticky=(tk.N, tk.S))
+        scrollbar = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.customer_tree.yview)
+        scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.customer_tree.configure(yscrollcommand=scrollbar.set)
         
         # Action buttons

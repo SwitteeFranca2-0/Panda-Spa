@@ -32,7 +32,7 @@ class AppointmentService:
     
     def create_appointment(self, customer_id: int, service_id: int, 
                           appointment_datetime: datetime,
-                          notes: str = None) -> Tuple[Optional[Appointment], str]:
+                          notes: str = None, customer_feeling: str = None) -> Tuple[Optional[Appointment], str]:
         """
         Create a new appointment with conflict checking.
         
@@ -41,6 +41,7 @@ class AppointmentService:
             service_id: ID of the service
             appointment_datetime: Scheduled date and time
             notes: Optional notes
+            customer_feeling: Optional customer mood/feeling
             
         Returns:
             Tuple of (Appointment if successful, error message if failed)
@@ -71,7 +72,8 @@ class AppointmentService:
             duration_minutes=service.duration_minutes,
             price_paid=service.price,
             notes=notes,
-            status=Appointment.STATUS_SCHEDULED
+            status=Appointment.STATUS_SCHEDULED,
+            customer_feeling=customer_feeling
         )
         
         success = self.db_manager.save(appointment)

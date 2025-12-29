@@ -8,6 +8,7 @@ from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey, Tex
 from sqlalchemy.orm import relationship
 
 from database.base import Base
+from models.appointment_extra import appointment_extra_association
 
 
 class Appointment(Base):
@@ -52,6 +53,9 @@ class Appointment(Base):
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     
+    # Customer feeling/mood at time of booking
+    customer_feeling = Column(String(50), nullable=True)  # e.g., "stressed", "relaxed", "celebrating", "tired"
+    
     # Completion/Cancellation tracking
     completed_at = Column(DateTime, nullable=True)
     cancelled_at = Column(DateTime, nullable=True)
@@ -60,10 +64,11 @@ class Appointment(Base):
     # Relationships
     customer = relationship("Customer", backref="appointments")
     service = relationship("Service", backref="appointments")
+    extras = relationship("Extra", secondary=appointment_extra_association, backref="appointments")
     
     def __init__(self, customer_id: int, service_id: int, appointment_datetime: datetime,
                  duration_minutes: int = None, price_paid: float = None, notes: str = None,
-                 status: str = STATUS_SCHEDULED):
+                 status: str = STATUS_SCHEDULED, customer_feeling: str = None):
         """
         Initialize a new Appointment.
         
@@ -75,6 +80,7 @@ class Appointment(Base):
             price_paid: Price paid (defaults to service price)
             notes: Optional notes
             status: Appointment status (default: scheduled)
+            customer_feeling: Customer's mood/feeling at booking time
         """
         self.customer_id = customer_id
         self.service_id = service_id
@@ -83,6 +89,7 @@ class Appointment(Base):
         self.duration_minutes = duration_minutes or 0
         self.price_paid = price_paid or 0.0
         self.notes = notes
+        self.customer_feeling = customer_feeling
         if not self.created_at:
             self.created_at = datetime.utcnow()
     
@@ -122,7 +129,8 @@ class Appointment(Base):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'completed_at': self.completed_at.isoformat() if self.completed_at else None,
             'cancelled_at': self.cancelled_at.isoformat() if self.cancelled_at else None,
-            'cancellation_reason': self.cancellation_reason
+            'cancellation_reason': self.cancellation_reason,
+            'customer_feeling': self.customer_feeling
         }
     
     def __repr__(self) -> str:

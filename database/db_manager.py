@@ -72,7 +72,7 @@ class DatabaseManagement:
         # Import all models here to ensure they're registered with Base
         # This ensures all model tables are created
         try:
-            from models import Customer, Service, Appointment, Supplier, FinancialRecord, CustomerPreference  # Import models to register with Base
+            from models import Customer, Service, Appointment, Supplier, FinancialRecord, CustomerPreference, Extra, FeelingServiceMapping  # Import models to register with Base
         except ImportError:
             pass  # Models not created yet
         

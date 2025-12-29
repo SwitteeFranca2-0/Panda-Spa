@@ -38,6 +38,11 @@ class ServiceWindow:
     
     def _create_widgets(self):
         """Create and layout all GUI widgets."""
+        # Configure Treeview style to set row height (prevents overlapping rows)
+        style = ttk.Style()
+        style.configure("Treeview", rowheight=50)  # Set row height to 50 pixels
+        style.configure("Treeview.Heading", font=('Arial', 10, 'bold'))
+        
         # Main container
         main_frame = ttk.Frame(self.window, padding="10")
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))

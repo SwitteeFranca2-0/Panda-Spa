@@ -9,6 +9,8 @@ from models.appointment import Appointment
 from models.supplier import Supplier
 from models.financial_record import FinancialRecord
 from models.customer_preference import CustomerPreference
+from models.extra import Extra
+from models.feeling_service_mapping import FeelingServiceMapping
 
 __all__ = [
     'Customer',
@@ -16,6 +18,8 @@ __all__ = [
     'Appointment',
     'Supplier',
     'FinancialRecord',
-    'CustomerPreference'
+    'CustomerPreference',
+    'Extra',
+    'FeelingServiceMapping'
 ]
 
